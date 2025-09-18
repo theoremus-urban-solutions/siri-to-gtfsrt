@@ -1,3 +1,4 @@
+cmd/siri-to-gtfs/siri-to-gtfs
 # Go binaries and test artifacts
 /*.exe
 /*.exe~

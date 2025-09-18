@@ -8,10 +8,10 @@ What this is
 
 Usage (CLI)
 1) Build
-   - `go build -o kishar`
+   - `go build -o siri-to-gtfs ./cmd/siri-to-gtfs`
 2) Run
-   - `./kishar --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split`
-   - `cat siri.xml | ./kishar --type vehicle-positions --out gtfsrt-json`
+   - `./siri-to-gtfs --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split`
+   - `cat siri.xml | ./siri-to-gtfs --type vehicle-positions --out gtfsrt-json`
 
 Library API (import-less, flat package main)
 - `ConvertSIRI(sd *ServiceDelivery, opts Options) ([]Entity, error)`
@@ -23,10 +23,6 @@ Library API details
   - `EstimatedTimetableDelivery` (ET) containing `EstimatedVehicleJourney` records
   - `VehicleMonitoringDelivery` (VM) containing `VehicleActivity` records
   - `SituationExchangeDelivery` (SX) containing `PtSituationElement` records
-- `Options`:
-  - `ETWhitelist`, `VMWhitelist`, `SXWhitelist`: optional datasource/participant filters (not wired in CLI yet)
-  - `CloseToNextStopPercentage` and `CloseToNextStopDistance`: VM heuristics for proximity (reserved for future use)
-  - `VMGracePeriod`: fallback TTL when message timestamps do not provide an explicit end time
 - `Entity` (conversion output):
   - `ID`: stable key per entity (e.g., vehicleRef or tripId-startDate, situationNumber)
   - `Datasource`: origin/source if present in SIRI
@@ -48,6 +44,57 @@ What is “SIRI ServiceDelivery”?
   - `VehicleMonitoringDelivery` (VM): real-time vehicle positions and statuses (drives VehiclePositions)
   - `SituationExchangeDelivery` (SX): disruptions, messages, and advisories (drives Alerts)
 - In XML, you’ll typically see `<Siri><ServiceDelivery>...` containing these nested blocks. This project decodes that payload and maps each block to the equivalent GTFS-RT concept.
+
+### CLI Specification — SIRI → GTFS-Realtime
+
+Goal: A simple command-line tool wrapping the library to convert SIRI ET/VM/SX into GTFS-RT, reading from stdin/files/URLs and writing PBF or JSON.
+
+### Commands
+- `siri-to-gtfs` — Convert SIRI (XML) to GTFS-RT
+
+### Flags
+- Input selection:
+  - `--input file|url|stdin` (default: stdin)
+  - `--path PATH_OR_URL`
+- Output selection:
+  - `--out gtfsrt-pbf|gtfsrt-json` (default: gtfsrt-json)
+  - `--output PATH` (default: stdout)
+
+### Behavior
+1) Read SIRI payload (XML); decode to internal SIRI structs.
+2) Run `convert.ConvertSIRI` with flags → entities.
+3) Aggregate to one GTFS-RT `FeedMessage` per type or combined:
+   - Default combined single `FeedMessage` that contains all entity types is not standard. Instead, provide explicit output modes:
+     - `--type trip-updates|vehicle-positions|alerts|all` (default: all)
+     - For `all`, emit multiple outputs when writing to files: `trip-updates.*`, `vehicle-positions.*`, `alerts.*`. For stdout, emit one after another separated by boundaries or use `--split` to write directory outputs.
+4) Write output as PBF or JSON.
+
+### Examples
+```bash
+# Build the CLI
+go build -o siri-to-gtfs ./cmd/siri-to-gtfs
+
+# Convert SIRI XML from stdin to GTFS-RT trip-updates in JSON
+cat siri.xml | ./siri-to-gtfs --type trip-updates --out gtfsrt-json > trip-updates.json
+
+# Convert SIRI ET/VM/SX XML file to three GTFS-RT JSON files
+./siri-to-gtfs --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split
+
+# Convert and print Vehicle Positions JSON
+./siri-to-gtfs --input file --path siri.xml --type vehicle-positions --out gtfsrt-json | jq
+```
+
+### Exit codes
+- 0 on success with any produced output
+- 1 on invalid input/flags or decode failures
+- 2 when input is valid but yields zero entities and `--strict` is set
+
+### Notes
+- PBF output is not yet implemented in the flat placeholder build (`--out gtfsrt-pbf` will exit with an error).
+- For streaming use later, this CLI will be used as a building block in services; it should be stateless and fast.
+
+
+
 
 
 

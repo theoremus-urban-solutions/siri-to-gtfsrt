@@ -1,4 +1,4 @@
-module golang
+module github.com/ivozhelezarov/siri-to-gtfsrt
 
 go 1.23
 

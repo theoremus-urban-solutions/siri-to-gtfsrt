@@ -1,4 +1,4 @@
-package main
+package siritogtfs
 
 // Convert and feed building logic
 

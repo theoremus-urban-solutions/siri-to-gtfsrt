@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+
+	siritogtfs "github.com/ivozhelezarov/siri-to-gtfsrt"
 )
 
 func main() {
@@ -34,29 +36,29 @@ func main() {
 		log.Fatalf("unsupported input: %s", *input)
 	}
 
-	sd, err := DecodeSIRI(f)
+	sd, err := siritogtfs.DecodeSIRI(f)
 	if err != nil {
 		log.Fatalf("decode xml: %v", err)
 	}
 
-	entities, err := ConvertSIRI(sd, DefaultOptions())
+	entities, err := siritogtfs.ConvertSIRI(sd, siritogtfs.DefaultOptions())
 	if err != nil {
 		log.Fatalf("convert: %v", err)
 	}
 
-	var msgs map[string]*FeedMessage
+	var msgs map[string]*siritogtfs.FeedMessage
 	switch *kind {
 	case "trip-updates":
-		msgs = map[string]*FeedMessage{"trip-updates": BuildFeedMessage(filterByKind(entities, "trip_update"))}
+		msgs = map[string]*siritogtfs.FeedMessage{"trip-updates": siritogtfs.BuildFeedMessage(filterByKind(entities, "trip_update"))}
 	case "vehicle-positions":
-		msgs = map[string]*FeedMessage{"vehicle-positions": BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
+		msgs = map[string]*siritogtfs.FeedMessage{"vehicle-positions": siritogtfs.BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
 	case "alerts":
-		msgs = map[string]*FeedMessage{"alerts": BuildFeedMessage(filterByKind(entities, "alert"))}
+		msgs = map[string]*siritogtfs.FeedMessage{"alerts": siritogtfs.BuildFeedMessage(filterByKind(entities, "alert"))}
 	case "all":
-		msgs = map[string]*FeedMessage{
-			"trip-updates":      BuildFeedMessage(filterByKind(entities, "trip_update")),
-			"vehicle-positions": BuildFeedMessage(filterByKind(entities, "vehicle_position")),
-			"alerts":            BuildFeedMessage(filterByKind(entities, "alert")),
+		msgs = map[string]*siritogtfs.FeedMessage{
+			"trip-updates":      siritogtfs.BuildFeedMessage(filterByKind(entities, "trip_update")),
+			"vehicle-positions": siritogtfs.BuildFeedMessage(filterByKind(entities, "vehicle_position")),
+			"alerts":            siritogtfs.BuildFeedMessage(filterByKind(entities, "alert")),
 		}
 	default:
 		log.Fatalf("unsupported --type: %s", *kind)
@@ -98,7 +100,7 @@ func main() {
 						}
 					}
 				} else {
-					out := map[string]*FeedMessage(msgs)
+					out := map[string]*siritogtfs.FeedMessage(msgs)
 					b, err := json.MarshalIndent(out, "", "  ")
 					if err != nil {
 						log.Fatalf("encode json: %v", err)
@@ -116,8 +118,8 @@ func main() {
 	}
 }
 
-func filterByKind(entities []Entity, kind string) []Entity {
-	var out []Entity
+func filterByKind(entities []siritogtfs.Entity, kind string) []siritogtfs.Entity {
+	var out []siritogtfs.Entity
 	for _, e := range entities {
 		if e.Kind == kind {
 			out = append(out, e)
@@ -126,11 +128,10 @@ func filterByKind(entities []Entity, kind string) []Entity {
 	return out
 }
 
-func writeJSON(path string, m *FeedMessage) error {
+func writeJSON(path string, m *siritogtfs.FeedMessage) error {
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
 }
-

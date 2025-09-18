@@ -1,4 +1,4 @@
-package main
+package siritogtfs
 
 import (
 	stdxml "encoding/xml"
