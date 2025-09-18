@@ -6,11 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	"golang/convert"
-	"golang/gtfsrt"
-	sirixml "golang/siri/xml"
-	"golang/types"
 )
 
 func main() {
@@ -39,29 +34,29 @@ func main() {
 		log.Fatalf("unsupported input: %s", *input)
 	}
 
-	sd, err := sirixml.Decode(f)
+	sd, err := DecodeSIRI(f)
 	if err != nil {
 		log.Fatalf("decode xml: %v", err)
 	}
 
-	entities, err := convert.ConvertSIRI(sd, types.DefaultOptions())
+	entities, err := ConvertSIRI(sd, DefaultOptions())
 	if err != nil {
 		log.Fatalf("convert: %v", err)
 	}
 
-	var msgs map[string]*gtfsrt.FeedMessage
+	var msgs map[string]*FeedMessage
 	switch *kind {
 	case "trip-updates":
-		msgs = map[string]*gtfsrt.FeedMessage{"trip-updates": convert.BuildFeedMessage(filterByKind(entities, "trip_update"))}
+		msgs = map[string]*FeedMessage{"trip-updates": BuildFeedMessage(filterByKind(entities, "trip_update"))}
 	case "vehicle-positions":
-		msgs = map[string]*gtfsrt.FeedMessage{"vehicle-positions": convert.BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
+		msgs = map[string]*FeedMessage{"vehicle-positions": BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
 	case "alerts":
-		msgs = map[string]*gtfsrt.FeedMessage{"alerts": convert.BuildFeedMessage(filterByKind(entities, "alert"))}
+		msgs = map[string]*FeedMessage{"alerts": BuildFeedMessage(filterByKind(entities, "alert"))}
 	case "all":
-		msgs = map[string]*gtfsrt.FeedMessage{
-			"trip-updates":      convert.BuildFeedMessage(filterByKind(entities, "trip_update")),
-			"vehicle-positions": convert.BuildFeedMessage(filterByKind(entities, "vehicle_position")),
-			"alerts":            convert.BuildFeedMessage(filterByKind(entities, "alert")),
+		msgs = map[string]*FeedMessage{
+			"trip-updates":      BuildFeedMessage(filterByKind(entities, "trip_update")),
+			"vehicle-positions": BuildFeedMessage(filterByKind(entities, "vehicle_position")),
+			"alerts":            BuildFeedMessage(filterByKind(entities, "alert")),
 		}
 	default:
 		log.Fatalf("unsupported --type: %s", *kind)
@@ -103,7 +98,7 @@ func main() {
 						}
 					}
 				} else {
-					out := map[string]*gtfsrt.FeedMessage(msgs)
+					out := map[string]*FeedMessage(msgs)
 					b, err := json.MarshalIndent(out, "", "  ")
 					if err != nil {
 						log.Fatalf("encode json: %v", err)
@@ -121,8 +116,8 @@ func main() {
 	}
 }
 
-func filterByKind(entities []types.Entity, kind string) []types.Entity {
-	var out []types.Entity
+func filterByKind(entities []Entity, kind string) []Entity {
+	var out []Entity
 	for _, e := range entities {
 		if e.Kind == kind {
 			out = append(out, e)
@@ -131,10 +126,11 @@ func filterByKind(entities []types.Entity, kind string) []types.Entity {
 	return out
 }
 
-func writeJSON(path string, m *gtfsrt.FeedMessage) error {
+func writeJSON(path string, m *FeedMessage) error {
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
 }
+

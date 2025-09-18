@@ -3,17 +3,16 @@
 Goal: A simple command-line tool wrapping the library to convert SIRI ET/VM/SX into GTFS-RT, reading from stdin/files/URLs and writing PBF or JSON.
 
 ### Commands
-- `kishar-convert siri2gtfs` — Convert SIRI to GTFS-RT
+- `kishar` — Convert SIRI (XML) to GTFS-RT
 
 ### Flags
 - Input selection:
   - `--input file|url|stdin` (default: stdin)
   - `--path PATH_OR_URL`
-  - `--format json|xml` (default: json)
 - Output selection:
-  - `--out gtfsrt-pbf|gtfsrt-json` (default: gtfsrt-pbf)
+  - `--out gtfsrt-pbf|gtfsrt-json` (default: gtfsrt-json)
   - `--output PATH` (default: stdout)
-- Filters and options:
+- Filters and options (placeholders for future wiring):
   - `--whitelist-et csv`
   - `--whitelist-vm csv`
   - `--whitelist-sx csv`
@@ -22,7 +21,7 @@ Goal: A simple command-line tool wrapping the library to convert SIRI ET/VM/SX i
   - `--vm-grace-period duration` (default: 5m)
 
 ### Behavior
-1) Read SIRI payload (JSON initially); decode to internal SIRI structs.
+1) Read SIRI payload (XML); decode to internal SIRI structs.
 2) Run `convert.ConvertSIRI` with flags → entities.
 3) Aggregate to one GTFS-RT `FeedMessage` per type or combined:
    - Default combined single `FeedMessage` that contains all entity types is not standard. Instead, provide explicit output modes:
@@ -32,17 +31,20 @@ Goal: A simple command-line tool wrapping the library to convert SIRI ET/VM/SX i
 
 ### Examples
 ```bash
-# Convert SIRI JSON from stdin to GTFS-RT trip-updates in PBF
-cat siri.json | kishar-convert siri2gtfs --type trip-updates --out gtfsrt-pbf > trip-updates.pbf
+# Build the CLI
+go build -o kishar
 
-# Convert SIRI ET/VM/SX JSON file to three GTFS-RT files
-kishar-convert siri2gtfs --input file --path siri.json --type all --out gtfsrt-pbf --output outdir --split
+# Convert SIRI XML from stdin to GTFS-RT trip-updates in JSON
+cat siri.xml | ./kishar --type trip-updates --out gtfsrt-json > trip-updates.json
 
-# Convert and print JSON
-kishar-convert siri2gtfs --input file --path siri.json --type vehicle-positions --out gtfsrt-json | jq
+# Convert SIRI ET/VM/SX XML file to three GTFS-RT JSON files
+./kishar --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split
 
-# Apply datasource whitelists
-kishar-convert siri2gtfs --input file --path siri.json --whitelist-et RUT,BNR --whitelist-vm RUT --whitelist-sx ENT
+# Convert and print Vehicle Positions JSON
+./kishar --input file --path siri.xml --type vehicle-positions --out gtfsrt-json | jq
+
+# Apply datasource whitelists (placeholders)
+./kishar --input file --path siri.xml --whitelist-et RUT,BNR --whitelist-vm RUT --whitelist-sx ENT
 ```
 
 ### Exit codes
@@ -51,7 +53,9 @@ kishar-convert siri2gtfs --input file --path siri.json --whitelist-et RUT,BNR --
 - 2 when input is valid but yields zero entities and `--strict` is set
 
 ### Notes
-- XML support can be added later with `--format xml`.
+- PBF output is not yet implemented in the flat placeholder build (`--out gtfsrt-pbf` will exit with an error).
 - For streaming use later, this CLI will be used as a building block in services; it should be stateless and fast.
+
+
 
 

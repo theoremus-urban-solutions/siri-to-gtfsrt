@@ -1,14 +1,21 @@
-package convert
+package main
 
-import (
-	"golang/gtfsrt"
-	"golang/mapper"
-	"golang/siri"
-	"golang/types"
-)
+// Convert and feed building logic
 
-func convertSIRI(sd *siri.ServiceDelivery, opts types.Options) ([]types.Entity, error) {
-	var out []types.Entity
+func ConvertSIRI(sd *ServiceDelivery, opts Options) ([]Entity, error) {
+	return convertSIRI(sd, opts)
+}
+
+func BuildFeedMessage(entities []Entity) *FeedMessage {
+	return buildFeedMessage(entities)
+}
+
+func BuildPerDatasource(entities []Entity) map[string]*FeedMessage {
+	return buildPerDatasource(entities)
+}
+
+func convertSIRI(sd *ServiceDelivery, opts Options) ([]Entity, error) {
+	var out []Entity
 	if sd == nil {
 		return out, nil
 	}
@@ -16,7 +23,7 @@ func convertSIRI(sd *siri.ServiceDelivery, opts types.Options) ([]types.Entity, 
 	for _, d := range sd.EstimatedTimetableDeliveries {
 		for _, f := range d.EstimatedJourneyVersionFrames {
 			for _, evj := range f.EstimatedVehicleJourneys {
-				if e := mapper.MapETToTripUpdate(&evj, opts); e != nil {
+				if e := MapETToTripUpdate(&evj, opts); e != nil {
 					e.Kind = "trip_update"
 					out = append(out, *e)
 				}
@@ -26,7 +33,7 @@ func convertSIRI(sd *siri.ServiceDelivery, opts types.Options) ([]types.Entity, 
 
 	for _, d := range sd.VehicleMonitoringDeliveries {
 		for _, va := range d.VehicleActivities {
-			if e := mapper.MapVMToVehiclePosition(&va, opts); e != nil {
+			if e := MapVMToVehiclePosition(&va, opts); e != nil {
 				e.Kind = "vehicle_position"
 				out = append(out, *e)
 			}
@@ -35,7 +42,7 @@ func convertSIRI(sd *siri.ServiceDelivery, opts types.Options) ([]types.Entity, 
 
 	for _, d := range sd.SituationExchangeDeliveries {
 		for _, sx := range d.Situations {
-			if e := mapper.MapSXToAlert(&sx, opts); e != nil {
+			if e := MapSXToAlert(&sx, opts); e != nil {
 				e.Kind = "alert"
 				out = append(out, *e)
 			}
@@ -44,8 +51,8 @@ func convertSIRI(sd *siri.ServiceDelivery, opts types.Options) ([]types.Entity, 
 	return out, nil
 }
 
-func buildFeedMessage(entities []types.Entity) *gtfsrt.FeedMessage {
-	msg := gtfsrt.NewFeedMessage()
+func buildFeedMessage(entities []Entity) *FeedMessage {
+	msg := NewFeedMessage()
 	for _, e := range entities {
 		if e.Message != nil {
 			msg.Entity = append(msg.Entity, e.Message)
@@ -54,15 +61,15 @@ func buildFeedMessage(entities []types.Entity) *gtfsrt.FeedMessage {
 	return msg
 }
 
-func buildPerDatasource(entities []types.Entity) map[string]*gtfsrt.FeedMessage {
-	out := make(map[string]*gtfsrt.FeedMessage)
+func buildPerDatasource(entities []Entity) map[string]*FeedMessage {
+	out := make(map[string]*FeedMessage)
 	for _, e := range entities {
 		if e.Message == nil {
 			continue
 		}
 		msg, ok := out[e.Datasource]
 		if !ok {
-			msg = gtfsrt.NewFeedMessage()
+			msg = NewFeedMessage()
 			out[e.Datasource] = msg
 		}
 		msg.Entity = append(msg.Entity, e.Message)
