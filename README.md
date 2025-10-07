@@ -1,4 +1,6 @@
-Based on Entur's Kishar (embed @https://github.com/entur/kishar) — a SIRI → GTFS-Realtime converter reimplemented in Go with a flat package layout and a minimal CLI for converting SIRI ET/VM/SX XML into GTFS-RT-like JSON outputs.
+Based on Entur's Kishar (ttps://github.com/entur/kishar) — a SIRI → GTFS-Realtime converter reimplemented in Go with a flat package layout and a minimal CLI for converting SIRI ET/VM/SX XML into GTFS-RT-like JSON outputs.
+
+Sister project (GTFS-Realtime to SIRI) - https://github.com/theoremus-urban-solutions/gtfsrt-to-siri
 
 What this is
 - Lightweight Go library and CLI for transforming SIRI ServiceDelivery payloads:
@@ -9,6 +11,7 @@ What this is
 Usage (CLI)
 1) Build
    - `go build -o siri-to-gtfs ./cmd/siri-to-gtfs`
+   - `go build -o gtfsrt-diff ./cmd/gtfsrt-diff`
 2) Run
    - `./siri-to-gtfs --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split`
    - `cat siri.xml | ./siri-to-gtfs --type vehicle-positions --out gtfsrt-json`
@@ -71,17 +74,23 @@ Goal: A simple command-line tool wrapping the library to convert SIRI ET/VM/SX i
 
 ### Examples
 ```bash
-# Build the CLI
+# Build the CLIs
 go build -o siri-to-gtfs ./cmd/siri-to-gtfs
+go build -o gtfsrt-diff ./cmd/gtfsrt-diff
 
 # Convert SIRI XML from stdin to GTFS-RT trip-updates in JSON
 cat siri.xml | ./siri-to-gtfs --type trip-updates --out gtfsrt-json > trip-updates.json
 
 # Convert SIRI ET/VM/SX XML file to three GTFS-RT JSON files
-./siri-to-gtfs --input file --path siri.xml --type all --out gtfsrt-json --output outdir --split
+mkdir -p ./tmp/out
+./siri-to-gtfs --input file --path siri.xml --type all --out gtfsrt-json --output ./tmp/out --split
 
 # Convert and print Vehicle Positions JSON
 ./siri-to-gtfs --input file --path siri.xml --type vehicle-positions --out gtfsrt-json | jq
+
+# Compare against golden JSON and produce HTML report
+./gtfsrt-diff --ours ./tmp/out --golden testdata/golden/json --format json --html ./tmp/report.html
+open ./tmp/report.html
 ```
 
 ### Exit codes

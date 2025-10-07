@@ -36,4 +36,9 @@ Thumbs.db
 /sample_minimal_vm.xml
 
 guidelines.md
-
+/cmd/gtfsrt-diff
+/cmd/pbf2
+/gtfsrt-diff
+/pbf2json
+/tmp
+/siri-to-gtfs

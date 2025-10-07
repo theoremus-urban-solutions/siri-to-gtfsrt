@@ -87,6 +87,10 @@ type Alert struct {
 	ActivePeriod    []TimeRange       `json:"active_period,omitempty"`
 	InformedEntity  []EntitySelector  `json:"informed_entity,omitempty"`
 	Url             *TranslatedString `json:"url,omitempty"`
+	// Raw SIRI fields for PBF mapping (not emitted in JSON)
+	Cause    *string `json:"-"`
+	Effect   *string `json:"-"`
+	Severity *string `json:"-"`
 }
 
 type TranslatedString struct {

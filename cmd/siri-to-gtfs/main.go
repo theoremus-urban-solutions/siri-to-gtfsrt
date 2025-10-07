@@ -7,13 +7,13 @@ import (
 	"log"
 	"os"
 
-	siritogtfs "github.com/ivozhelezarov/siri-to-gtfsrt"
+	siritogtfs "github.com/theoremus-urban-solutions/siri-to-gtfsrt"
 )
 
 func main() {
 	input := flag.String("input", "stdin", "file|url|stdin (url not yet supported)")
 	path := flag.String("path", "", "PATH or URL when input is file or url")
-	outfmt := flag.String("out", "gtfsrt-json", "gtfsrt-pbf|gtfsrt-json")
+	outfmt := flag.String("out", "gtfsrt-pbf", "gtfsrt-pbf|gtfsrt-json")
 	kind := flag.String("type", "all", "trip-updates|vehicle-positions|alerts|all")
 	output := flag.String("output", "", "output file or directory (stdout if empty)")
 	split := flag.Bool("split", false, "when --type=all and output is a directory, write separate files")
@@ -112,7 +112,39 @@ func main() {
 			}
 		}
 	case "gtfsrt-pbf":
-		log.Fatalf("PBF output not supported yet in placeholder build")
+		if *output == "" {
+			if len(msgs) != 1 {
+				log.Fatalf("when writing PBF to stdout, select a single --type")
+			}
+			for _, m := range msgs {
+				if err := writePBFStdout(m); err != nil {
+					log.Fatalf("write stdout pbf: %v", err)
+				}
+			}
+			return
+		}
+		fi, err := os.Stat(*output)
+		if err == nil && fi.IsDir() {
+			for name, m := range msgs {
+				if !*split && *kind == "all" && name != "trip-updates" {
+					continue
+				}
+				p := *output + "/" + name + ".pb"
+				if err := writePBF(p, m); err != nil {
+					log.Fatalf("write %s: %v", p, err)
+				}
+			}
+		} else {
+			if len(msgs) == 1 {
+				for _, m := range msgs {
+					if err := writePBF(*output, m); err != nil {
+						log.Fatalf("write %s: %v", *output, err)
+					}
+				}
+			} else {
+				log.Fatalf("multiple messages but output is a file; use a directory or select single --type")
+			}
+		}
 	default:
 		log.Fatalf("unsupported --out: %s", *outfmt)
 	}
@@ -134,4 +166,21 @@ func writeJSON(path string, m *siritogtfs.FeedMessage) error {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
+}
+
+func writePBF(path string, m *siritogtfs.FeedMessage) error {
+	b, err := siritogtfs.MarshalPBF(m)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
+}
+
+func writePBFStdout(m *siritogtfs.FeedMessage) error {
+	b, err := siritogtfs.MarshalPBF(m)
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.Write(b)
+	return err
 }

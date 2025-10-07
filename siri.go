@@ -108,16 +108,25 @@ type SituationExchangeDelivery struct {
 }
 
 type PtSituationElement struct {
-	ParticipantRef  *string          `xml:"ParticipantRef"`
-	SituationNumber *string          `xml:"SituationNumber"`
-	ValidityPeriods []ValidityPeriod `xml:"ValidityPeriod"`
-	Summaries       []TranslatedText `xml:"Summary"`
-	Descriptions    []TranslatedText `xml:"Description"`
-	Affects         *Affects         `xml:"Affects"`
-	InfoLinks       []InfoLink       `xml:"InfoLinks>InfoLink"`
+	ParticipantRef    *string            `xml:"ParticipantRef"`
+	SituationNumber   *string            `xml:"SituationNumber"`
+	PublicationWindow *PublicationWindow `xml:"PublicationWindow"`
+	Severity          *string            `xml:"Severity"`
+	Cause             *string            `xml:"Cause"`
+	Effect            *string            `xml:"Effect"`
+	ValidityPeriods   []ValidityPeriod   `xml:"ValidityPeriod"`
+	Summaries         []TranslatedText   `xml:"Summary"`
+	Descriptions      []TranslatedText   `xml:"Description"`
+	Affects           *Affects           `xml:"Affects"`
+	InfoLinks         []InfoLink         `xml:"InfoLinks>InfoLink"`
 }
 
 type ValidityPeriod struct {
+	StartTime *string `xml:"StartTime"`
+	EndTime   *string `xml:"EndTime"`
+}
+
+type PublicationWindow struct {
 	StartTime *string `xml:"StartTime"`
 	EndTime   *string `xml:"EndTime"`
 }
@@ -128,7 +137,8 @@ type TranslatedText struct {
 }
 
 type InfoLink struct {
-	Uri string `xml:"Uri"`
+	Uri  string `xml:",chardata"`
+	Lang string `xml:"http://www.w3.org/XML/1998/namespace lang,attr,omitempty"`
 }
 
 type Affects struct {

@@ -1,0 +1,4 @@
+github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.0.0 h1:f4P+fVYmSIWj4b/jvbMdmrmsx/Xb+5xCpYYtVXOdKoc=
+github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs v1.0.0/go.mod h1:nSmbVVQSM4lp9gYvVaaTotnRxSwZXEdFnJARofg5V4g=
+google.golang.org/protobuf v1.36.9 h1:w2gp2mA27hUeUzj9Ex9FBjsBm40zfaDtEWow293U7Iw=
+google.golang.org/protobuf v1.36.9/go.mod h1:fuxRtAxBytpl4zzqUh6/eyUujkJdNiuEkXntxiD/uRU=
