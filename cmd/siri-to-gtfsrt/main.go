@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 
-	siritogtfs "github.com/theoremus-urban-solutions/siri-to-gtfsrt"
+	"github.com/theoremus-urban-solutions/siri-to-gtfsrt/converter"
+	"github.com/theoremus-urban-solutions/siri-to-gtfsrt/formatter"
+	"github.com/theoremus-urban-solutions/siri-to-gtfsrt/gtfsrt"
 )
 
 func main() {
@@ -36,29 +38,29 @@ func main() {
 		log.Fatalf("unsupported input: %s", *input)
 	}
 
-	sd, err := siritogtfs.DecodeSIRI(f)
+	sd, err := formatter.DecodeSIRI(f)
 	if err != nil {
 		log.Fatalf("decode xml: %v", err)
 	}
 
-	entities, err := siritogtfs.ConvertSIRI(sd, siritogtfs.DefaultOptions())
+	entities, err := converter.ConvertSIRI(sd, converter.DefaultOptions())
 	if err != nil {
 		log.Fatalf("convert: %v", err)
 	}
 
-	var msgs map[string]*siritogtfs.FeedMessage
+	var msgs map[string]*gtfsrt.FeedMessage
 	switch *kind {
 	case "trip-updates":
-		msgs = map[string]*siritogtfs.FeedMessage{"trip-updates": siritogtfs.BuildFeedMessage(filterByKind(entities, "trip_update"))}
+		msgs = map[string]*gtfsrt.FeedMessage{"trip-updates": converter.BuildFeedMessage(filterByKind(entities, "trip_update"))}
 	case "vehicle-positions":
-		msgs = map[string]*siritogtfs.FeedMessage{"vehicle-positions": siritogtfs.BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
+		msgs = map[string]*gtfsrt.FeedMessage{"vehicle-positions": converter.BuildFeedMessage(filterByKind(entities, "vehicle_position"))}
 	case "alerts":
-		msgs = map[string]*siritogtfs.FeedMessage{"alerts": siritogtfs.BuildFeedMessage(filterByKind(entities, "alert"))}
+		msgs = map[string]*gtfsrt.FeedMessage{"alerts": converter.BuildFeedMessage(filterByKind(entities, "alert"))}
 	case "all":
-		msgs = map[string]*siritogtfs.FeedMessage{
-			"trip-updates":      siritogtfs.BuildFeedMessage(filterByKind(entities, "trip_update")),
-			"vehicle-positions": siritogtfs.BuildFeedMessage(filterByKind(entities, "vehicle_position")),
-			"alerts":            siritogtfs.BuildFeedMessage(filterByKind(entities, "alert")),
+		msgs = map[string]*gtfsrt.FeedMessage{
+			"trip-updates":      converter.BuildFeedMessage(filterByKind(entities, "trip_update")),
+			"vehicle-positions": converter.BuildFeedMessage(filterByKind(entities, "vehicle_position")),
+			"alerts":            converter.BuildFeedMessage(filterByKind(entities, "alert")),
 		}
 	default:
 		log.Fatalf("unsupported --type: %s", *kind)
@@ -100,7 +102,7 @@ func main() {
 						}
 					}
 				} else {
-					out := map[string]*siritogtfs.FeedMessage(msgs)
+					out := map[string]*gtfsrt.FeedMessage(msgs)
 					b, err := json.MarshalIndent(out, "", "  ")
 					if err != nil {
 						log.Fatalf("encode json: %v", err)
@@ -150,8 +152,8 @@ func main() {
 	}
 }
 
-func filterByKind(entities []siritogtfs.Entity, kind string) []siritogtfs.Entity {
-	var out []siritogtfs.Entity
+func filterByKind(entities []converter.Entity, kind string) []converter.Entity {
+	var out []converter.Entity
 	for _, e := range entities {
 		if e.Kind == kind {
 			out = append(out, e)
@@ -160,7 +162,7 @@ func filterByKind(entities []siritogtfs.Entity, kind string) []siritogtfs.Entity
 	return out
 }
 
-func writeJSON(path string, m *siritogtfs.FeedMessage) error {
+func writeJSON(path string, m *gtfsrt.FeedMessage) error {
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
@@ -168,16 +170,16 @@ func writeJSON(path string, m *siritogtfs.FeedMessage) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
-func writePBF(path string, m *siritogtfs.FeedMessage) error {
-	b, err := siritogtfs.MarshalPBF(m)
+func writePBF(path string, m *gtfsrt.FeedMessage) error {
+	b, err := gtfsrt.MarshalPBF(m)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
 }
 
-func writePBFStdout(m *siritogtfs.FeedMessage) error {
-	b, err := siritogtfs.MarshalPBF(m)
+func writePBFStdout(m *gtfsrt.FeedMessage) error {
+	b, err := gtfsrt.MarshalPBF(m)
 	if err != nil {
 		return err
 	}
