@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -132,9 +133,22 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 		}
 	}
 
-	ent := &gtfsrt.FeedEntity{Id: &id}
+	isDeleted := false
+	ent := &gtfsrt.FeedEntity{Id: &id, IsDeleted: &isDeleted}
 	tu := &gtfsrt.TripUpdate{}
-	td := &gtfsrt.TripDescriptor{TripId: tripId}
+
+	// Set timestamp from RecordedAtTime
+	if evj.RecordedAtTime != nil {
+		if t, ok := siri.ParseISOTime(*evj.RecordedAtTime); ok {
+			tu.Timestamp = fmt.Sprintf("%d", t.Unix())
+		}
+	}
+
+	schedRel := int32(0) // SCHEDULED
+	td := &gtfsrt.TripDescriptor{
+		TripId:               tripId,
+		ScheduleRelationship: &schedRel,
+	}
 	if evj.LineRef != nil {
 		td.RouteId = *evj.LineRef
 	}
@@ -150,8 +164,11 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 	}
 
 	stopSeq := int32(0)
+	schedRel0 := int32(0) // SCHEDULED
+	uncertainty0 := int32(0)
+
 	for _, rc := range evj.RecordedCalls {
-		stu := gtfsrt.StopTimeUpdate{}
+		stu := gtfsrt.StopTimeUpdate{ScheduleRelationship: &schedRel0}
 		if rc.StopPointRef != nil {
 			stu.StopId = *rc.StopPointRef
 		}
@@ -160,21 +177,37 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 		} else {
 			stu.StopSequence = stopSeq
 		}
-		if rc.AimedArrivalTime != nil {
-			if d := delaySeconds(rc.AimedArrivalTime, rc.ActualArrivalTime, rc.ExpectedArrivalTime); d != nil {
-				stu.Arrival = &gtfsrt.StopTimeEvent{Delay: d}
+
+		// Use absolute time (actual or expected) instead of delay
+		if rc.ActualArrivalTime != nil {
+			if t, ok := siri.ParseISOTime(*rc.ActualArrivalTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Arrival = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
+			}
+		} else if rc.ExpectedArrivalTime != nil {
+			if t, ok := siri.ParseISOTime(*rc.ExpectedArrivalTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Arrival = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
 			}
 		}
-		if rc.AimedDepartureTime != nil {
-			if d := delaySeconds(rc.AimedDepartureTime, rc.ActualDepartureTime, rc.ExpectedDepartureTime); d != nil {
-				stu.Departure = &gtfsrt.StopTimeEvent{Delay: d}
+
+		if rc.ActualDepartureTime != nil {
+			if t, ok := siri.ParseISOTime(*rc.ActualDepartureTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Departure = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
+			}
+		} else if rc.ExpectedDepartureTime != nil {
+			if t, ok := siri.ParseISOTime(*rc.ExpectedDepartureTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Departure = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
 			}
 		}
+
 		tu.StopTimeUpdate = append(tu.StopTimeUpdate, stu)
 		stopSeq++
 	}
 	for _, ec := range evj.EstimatedCalls {
-		stu := gtfsrt.StopTimeUpdate{}
+		stu := gtfsrt.StopTimeUpdate{ScheduleRelationship: &schedRel0}
 		if ec.StopPointRef != nil {
 			stu.StopId = *ec.StopPointRef
 		}
@@ -183,16 +216,22 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 		} else {
 			stu.StopSequence = stopSeq
 		}
-		if ec.AimedArrivalTime != nil && ec.ExpectedArrivalTime != nil {
-			if d := diffSeconds(*ec.AimedArrivalTime, *ec.ExpectedArrivalTime); d != nil {
-				stu.Arrival = &gtfsrt.StopTimeEvent{Delay: d}
+
+		// Use expected time for estimated calls
+		if ec.ExpectedArrivalTime != nil {
+			if t, ok := siri.ParseISOTime(*ec.ExpectedArrivalTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Arrival = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
 			}
 		}
-		if ec.AimedDepartureTime != nil && ec.ExpectedDepartureTime != nil {
-			if d := diffSeconds(*ec.AimedDepartureTime, *ec.ExpectedDepartureTime); d != nil {
-				stu.Departure = &gtfsrt.StopTimeEvent{Delay: d}
+
+		if ec.ExpectedDepartureTime != nil {
+			if t, ok := siri.ParseISOTime(*ec.ExpectedDepartureTime); ok {
+				ts := fmt.Sprintf("%d", t.Unix())
+				stu.Departure = &gtfsrt.StopTimeEvent{Time: ts, Uncertainty: &uncertainty0}
 			}
 		}
+
 		tu.StopTimeUpdate = append(tu.StopTimeUpdate, stu)
 		stopSeq++
 	}
@@ -258,14 +297,14 @@ func MapSXToAlert(sx *siri.PtSituationElement, opts Options) *Entity {
 	}
 
 	if summaryForParsing != "" {
-		cause := mapCauseIntToString(parseCauseFromSummary(summaryForParsing))
+		cause := parseCauseFromSummary(summaryForParsing)
 		alert.Cause = &cause
-		effect := mapEffectIntToString(parseEffectFromSummary(summaryForParsing))
+		effect := parseEffectFromSummary(summaryForParsing)
 		alert.Effect = &effect
 	} else {
 		// Default values if no summary
-		defaultCause := "OTHER_CAUSE"
-		defaultEffect := "OTHER_EFFECT"
+		defaultCause := int32(1)  // OTHER_CAUSE
+		defaultEffect := int32(8) // OTHER_EFFECT
 		alert.Cause = &defaultCause
 		alert.Effect = &defaultEffect
 	}

@@ -1,6 +1,7 @@
 package gtfsrt
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,8 +17,11 @@ func ToProto(m *FeedMessage) *gtfs.FeedMessage {
 	pm := &gtfs.FeedMessage{}
 	if m.Header != nil {
 		pm.Header = &gtfs.FeedHeader{}
-		if m.Header.Timestamp != nil {
-			pm.Header.Timestamp = m.Header.Timestamp
+		if m.Header.Timestamp != "" {
+			// Parse string timestamp to uint64
+			var ts uint64
+			fmt.Sscanf(m.Header.Timestamp, "%d", &ts)
+			pm.Header.Timestamp = &ts
 		} else {
 			// Ensure a header timestamp exists for consumer compatibility
 			ts := uint64(time.Now().Unix())
@@ -57,6 +61,11 @@ func toProtoEntity(e *FeedEntity) *gtfs.FeedEntity {
 
 func toProtoTripUpdate(tu *TripUpdate) *gtfs.TripUpdate {
 	ptu := &gtfs.TripUpdate{}
+	if tu.Timestamp != "" {
+		var ts uint64
+		fmt.Sscanf(tu.Timestamp, "%d", &ts)
+		ptu.Timestamp = &ts
+	}
 	if tu.Trip != nil {
 		ptu.Trip = &gtfs.TripDescriptor{
 			TripId:    proto.String(tu.Trip.TripId),
@@ -64,17 +73,49 @@ func toProtoTripUpdate(tu *TripUpdate) *gtfs.TripUpdate {
 			StartDate: proto.String(tu.Trip.StartDate),
 			StartTime: proto.String(tu.Trip.StartTime),
 		}
+		if tu.Trip.ScheduleRelationship != nil {
+			sr := gtfs.TripDescriptor_ScheduleRelationship(*tu.Trip.ScheduleRelationship)
+			ptu.Trip.ScheduleRelationship = &sr
+		}
 	}
 	if tu.Vehicle != nil {
 		ptu.Vehicle = &gtfs.VehicleDescriptor{Id: proto.String(tu.Vehicle.Id)}
 	}
 	for _, stu := range tu.StopTimeUpdate {
 		ps := &gtfs.TripUpdate_StopTimeUpdate{StopId: proto.String(stu.StopId), StopSequence: proto.Uint32(uint32(stu.StopSequence))}
-		if stu.Arrival != nil && stu.Arrival.Delay != nil {
-			ps.Arrival = &gtfs.TripUpdate_StopTimeEvent{Delay: proto.Int32(*stu.Arrival.Delay)}
+		if stu.Arrival != nil {
+			event := &gtfs.TripUpdate_StopTimeEvent{}
+			if stu.Arrival.Time != "" {
+				var t int64
+				fmt.Sscanf(stu.Arrival.Time, "%d", &t)
+				event.Time = proto.Int64(t)
+			}
+			if stu.Arrival.Delay != nil {
+				event.Delay = proto.Int32(*stu.Arrival.Delay)
+			}
+			if stu.Arrival.Uncertainty != nil {
+				event.Uncertainty = proto.Int32(*stu.Arrival.Uncertainty)
+			}
+			ps.Arrival = event
 		}
-		if stu.Departure != nil && stu.Departure.Delay != nil {
-			ps.Departure = &gtfs.TripUpdate_StopTimeEvent{Delay: proto.Int32(*stu.Departure.Delay)}
+		if stu.Departure != nil {
+			event := &gtfs.TripUpdate_StopTimeEvent{}
+			if stu.Departure.Time != "" {
+				var t int64
+				fmt.Sscanf(stu.Departure.Time, "%d", &t)
+				event.Time = proto.Int64(t)
+			}
+			if stu.Departure.Delay != nil {
+				event.Delay = proto.Int32(*stu.Departure.Delay)
+			}
+			if stu.Departure.Uncertainty != nil {
+				event.Uncertainty = proto.Int32(*stu.Departure.Uncertainty)
+			}
+			ps.Departure = event
+		}
+		if stu.ScheduleRelationship != nil {
+			sr := gtfs.TripUpdate_StopTimeUpdate_ScheduleRelationship(*stu.ScheduleRelationship)
+			ps.ScheduleRelationship = &sr
 		}
 		ptu.StopTimeUpdate = append(ptu.StopTimeUpdate, ps)
 	}
@@ -143,24 +184,18 @@ func toProtoAlert(a *Alert) *gtfs.Alert {
 	}
 	// Map cause and effect; default when missing or unmapped
 	{
-		var causeStr string
 		if a.Cause != nil {
-			causeStr = *a.Cause
-		}
-		if c := mapAlertCause(causeStr); c != nil {
-			pa.Cause = c
+			c := gtfs.Alert_Cause(*a.Cause)
+			pa.Cause = &c
 		} else {
 			v := gtfs.Alert_UNKNOWN_CAUSE
 			pa.Cause = &v
 		}
 	}
 	{
-		var effectStr string
 		if a.Effect != nil {
-			effectStr = *a.Effect
-		}
-		if e := mapAlertEffect(effectStr); e != nil {
-			pa.Effect = e
+			e := gtfs.Alert_Effect(*a.Effect)
+			pa.Effect = &e
 		} else {
 			v := gtfs.Alert_UNKNOWN_EFFECT
 			pa.Effect = &v
