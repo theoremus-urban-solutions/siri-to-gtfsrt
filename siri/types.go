@@ -42,6 +42,8 @@ type MonitoredVehicleJourney struct {
 	VehicleLocation          *Location                `xml:"VehicleLocation"`
 	Bearing                  *float32                 `xml:"Bearing"`
 	Velocity                 *float64                 `xml:"Velocity"`
+	Occupancy                *string                  `xml:"Occupancy"`
+	InCongestion             *bool                    `xml:"InCongestion"`
 	MonitoredCall            *MonitoredCall           `xml:"MonitoredCall"`
 	FramedVehicleJourneyRef  *FramedVehicleJourneyRef `xml:"FramedVehicleJourneyRef"`
 	OriginAimedDepartureTime *string                  `xml:"OriginAimedDepartureTime"`

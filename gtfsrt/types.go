@@ -57,7 +57,7 @@ type StopTimeUpdate struct {
 	Departure            *StopTimeEvent `json:"departure,omitempty"`
 	ScheduleRelationship *int32         `json:"schedule_relationship,omitempty"`
 	StopId               string         `json:"stop_id,omitempty"`
-	StopSequence         int32          `json:"stop_sequence,omitempty"`
+	StopSequence         int32          `json:"stop_sequence"`
 }
 
 type StopTimeEvent struct {
@@ -69,13 +69,13 @@ type StopTimeEvent struct {
 // VehiclePosition
 
 type VehiclePosition struct {
-	CongestionLevel     *string            `json:"congestion_level,omitempty"`
-	CurrentStatus       string             `json:"current_status,omitempty"`
+	CongestionLevel     *int32             `json:"congestion_level,omitempty"`
+	CurrentStatus       *int32             `json:"current_status,omitempty"`
 	CurrentStopSequence *int32             `json:"current_stop_sequence,omitempty"`
-	OccupancyStatus     *string            `json:"occupancy_status,omitempty"`
+	OccupancyStatus     *int32             `json:"occupancy_status,omitempty"`
 	Position            *Position          `json:"position,omitempty"`
 	StopId              *string            `json:"stop_id,omitempty"`
-	Timestamp           *int64             `json:"timestamp,omitempty"`
+	Timestamp           *string            `json:"timestamp,omitempty"`
 	Trip                *TripDescriptor    `json:"trip,omitempty"`
 	Vehicle             *VehicleDescriptor `json:"vehicle,omitempty"`
 }

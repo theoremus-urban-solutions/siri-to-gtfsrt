@@ -131,6 +131,10 @@ func toProtoVehicle(v *VehiclePosition) *gtfs.VehiclePosition {
 			StartDate: proto.String(v.Trip.StartDate),
 			StartTime: proto.String(v.Trip.StartTime),
 		}
+		if v.Trip.ScheduleRelationship != nil {
+			sr := gtfs.TripDescriptor_ScheduleRelationship(*v.Trip.ScheduleRelationship)
+			pv.Trip.ScheduleRelationship = &sr
+		}
 	}
 	if v.Vehicle != nil {
 		pv.Vehicle = &gtfs.VehicleDescriptor{Id: proto.String(v.Vehicle.Id)}
@@ -148,12 +152,14 @@ func toProtoVehicle(v *VehiclePosition) *gtfs.VehiclePosition {
 		}
 		pv.Position = pp
 	}
-	if v.Timestamp != nil {
-		ts := uint64(*v.Timestamp)
+	if v.Timestamp != nil && *v.Timestamp != "" {
+		var ts uint64
+		fmt.Sscanf(*v.Timestamp, "%d", &ts)
 		pv.Timestamp = &ts
 	}
-	if st := mapVehicleStopStatus(v.CurrentStatus); st != nil {
-		pv.CurrentStatus = st
+	if v.CurrentStatus != nil {
+		cs := gtfs.VehiclePosition_VehicleStopStatus(*v.CurrentStatus)
+		pv.CurrentStatus = &cs
 	}
 	if v.StopId != nil {
 		pv.StopId = proto.String(*v.StopId)
@@ -162,14 +168,12 @@ func toProtoVehicle(v *VehiclePosition) *gtfs.VehiclePosition {
 		pv.CurrentStopSequence = proto.Uint32(uint32(*v.CurrentStopSequence))
 	}
 	if v.OccupancyStatus != nil {
-		if os := mapOccupancyStatus(*v.OccupancyStatus); os != nil {
-			pv.OccupancyStatus = os
-		}
+		os := gtfs.VehiclePosition_OccupancyStatus(*v.OccupancyStatus)
+		pv.OccupancyStatus = &os
 	}
 	if v.CongestionLevel != nil {
-		if cl := mapCongestionLevel(*v.CongestionLevel); cl != nil {
-			pv.CongestionLevel = cl
-		}
+		cl := gtfs.VehiclePosition_CongestionLevel(*v.CongestionLevel)
+		pv.CongestionLevel = &cl
 	}
 	return pv
 }

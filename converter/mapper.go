@@ -22,15 +22,16 @@ func MapVMToVehiclePosition(va *siri.VehicleActivity, opts Options) *Entity {
 	}
 
 	var id string
-	if mvj.VehicleRef != nil && *mvj.VehicleRef != "" {
-		id = *mvj.VehicleRef
-	} else if mvj.FramedVehicleJourneyRef != nil && mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef != nil {
-		id = *mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef
+	// Prefer trip ID over vehicle ID for entity ID
+	if mvj.FramedVehicleJourneyRef != nil && mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef != nil {
+		id = stripPrefix(*mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef, "SOFIA:ServiceJourney:")
 		if mvj.OriginAimedDepartureTime != nil {
 			if t, ok := siri.ParseISOTime(*mvj.OriginAimedDepartureTime); ok {
 				id = id + "-" + siri.FormatDateYYYYMMDD(t)
 			}
 		}
+	} else if mvj.VehicleRef != nil && *mvj.VehicleRef != "" {
+		id = stripPrefix(*mvj.VehicleRef, "SOFIA:VehicleRef:")
 	}
 	if id == "" {
 		return nil
@@ -48,20 +49,72 @@ func MapVMToVehiclePosition(va *siri.VehicleActivity, opts Options) *Entity {
 
 	ent := &gtfsrt.FeedEntity{Id: &id}
 	vp := &gtfsrt.VehiclePosition{}
+
+	// Map congestion level from InCongestion
+	if mvj.InCongestion != nil {
+		if *mvj.InCongestion {
+			congestionLevel := int32(3) // CONGESTION
+			vp.CongestionLevel = &congestionLevel
+		} else {
+			congestionLevel := int32(0) // UNKNOWN_CONGESTION_LEVEL
+			vp.CongestionLevel = &congestionLevel
+		}
+	}
+
+	// Map occupancy status from Occupancy
+	if mvj.Occupancy != nil {
+		var occupancyStatus int32
+		switch *mvj.Occupancy {
+		case "manySeatsAvailable":
+			occupancyStatus = 1
+		case "seatsAvailable":
+			occupancyStatus = 2
+		case "standingAvailable":
+			occupancyStatus = 3
+		case "full":
+			occupancyStatus = 5
+		default:
+			occupancyStatus = 0 // NO_DATA_AVAILABLE
+		}
+		vp.OccupancyStatus = &occupancyStatus
+	}
+
+	// Determine current status based on VehicleAtStop
+	if mvj.MonitoredCall != nil && mvj.MonitoredCall.VehicleAtStop != nil {
+		if *mvj.MonitoredCall.VehicleAtStop {
+			currentStatus := int32(1) // STOPPED_AT
+			vp.CurrentStatus = &currentStatus
+		} else {
+			currentStatus := int32(2) // IN_TRANSIT_TO
+			vp.CurrentStatus = &currentStatus
+		}
+	}
+
 	if mvj.FramedVehicleJourneyRef != nil && mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef != nil {
-		td := &gtfsrt.TripDescriptor{TripId: *mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef}
+		tripId := stripPrefix(*mvj.FramedVehicleJourneyRef.DatedVehicleJourneyRef, "SOFIA:ServiceJourney:")
+		schedRel := int32(0) // SCHEDULED
+		td := &gtfsrt.TripDescriptor{
+			TripId:               tripId,
+			ScheduleRelationship: &schedRel,
+		}
 		if mvj.OriginAimedDepartureTime != nil {
 			if t, ok := siri.ParseISOTime(*mvj.OriginAimedDepartureTime); ok {
 				td.StartDate = siri.FormatDateYYYYMMDD(t)
 			}
 		}
 		if mvj.LineRef != nil {
-			td.RouteId = *mvj.LineRef
+			td.RouteId = stripPrefix(*mvj.LineRef, "SOFIA:Line:")
 		}
 		vp.Trip = td
 	}
+
+	// Set stop_id from MonitoredCall
+	if mvj.MonitoredCall != nil && mvj.MonitoredCall.StopPointRef != nil {
+		stopId := stripPrefix(*mvj.MonitoredCall.StopPointRef, "SOFIA:Quay:")
+		vp.StopId = &stopId
+	}
 	if mvj.VehicleRef != nil && *mvj.VehicleRef != "" {
-		vp.Vehicle = &gtfsrt.VehicleDescriptor{Id: *mvj.VehicleRef}
+		vp.Vehicle = &gtfsrt.VehicleDescriptor{Id: stripPrefix(*mvj.VehicleRef, "SOFIA:VehicleRef:")}
 	}
 	if mvj.VehicleLocation != nil {
 		pos := &gtfsrt.Position{Latitude: float32(mvj.VehicleLocation.Latitude), Longitude: float32(mvj.VehicleLocation.Longitude)}
@@ -76,7 +129,7 @@ func MapVMToVehiclePosition(va *siri.VehicleActivity, opts Options) *Entity {
 	}
 	if va.RecordedAtTime != nil {
 		if t, ok := siri.ParseISOTime(*va.RecordedAtTime); ok {
-			ts := t.Unix()
+			ts := fmt.Sprintf("%d", t.Unix())
 			vp.Timestamp = &ts
 		}
 	}
@@ -91,7 +144,7 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 		return nil
 	}
 
-	tripId := *evj.FramedVehicleJourneyRef.DatedVehicleJourneyRef
+	tripId := stripPrefix(*evj.FramedVehicleJourneyRef.DatedVehicleJourneyRef, "SOFIA:ServiceJourney:")
 	var startDate string
 	if evj.OriginAimedDepartureTime != nil {
 		if t, ok := siri.ParseISOTime(*evj.OriginAimedDepartureTime); ok {
@@ -150,7 +203,7 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 		ScheduleRelationship: &schedRel,
 	}
 	if evj.LineRef != nil {
-		td.RouteId = *evj.LineRef
+		td.RouteId = stripPrefix(*evj.LineRef, "SOFIA:Line:")
 	}
 	if evj.OriginAimedDepartureTime != nil {
 		if t, ok := siri.ParseISOTime(*evj.OriginAimedDepartureTime); ok {
@@ -160,7 +213,7 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 	}
 	tu.Trip = td
 	if evj.VehicleRef != nil && *evj.VehicleRef != "" {
-		tu.Vehicle = &gtfsrt.VehicleDescriptor{Id: *evj.VehicleRef}
+		tu.Vehicle = &gtfsrt.VehicleDescriptor{Id: stripPrefix(*evj.VehicleRef, "SOFIA:VehicleRef:")}
 	}
 
 	stopSeq := int32(0)
@@ -170,7 +223,7 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 	for _, rc := range evj.RecordedCalls {
 		stu := gtfsrt.StopTimeUpdate{ScheduleRelationship: &schedRel0}
 		if rc.StopPointRef != nil {
-			stu.StopId = *rc.StopPointRef
+			stu.StopId = stripPrefix(*rc.StopPointRef, "SOFIA:Quay:")
 		}
 		if rc.Order != nil && *rc.Order > 0 {
 			stu.StopSequence = *rc.Order - 1
@@ -209,7 +262,7 @@ func MapETToTripUpdate(evj *siri.EstimatedVehicleJourney, opts Options) *Entity 
 	for _, ec := range evj.EstimatedCalls {
 		stu := gtfsrt.StopTimeUpdate{ScheduleRelationship: &schedRel0}
 		if ec.StopPointRef != nil {
-			stu.StopId = *ec.StopPointRef
+			stu.StopId = stripPrefix(*ec.StopPointRef, "SOFIA:Quay:")
 		}
 		if ec.Order != nil && *ec.Order > 0 {
 			stu.StopSequence = *ec.Order - 1
