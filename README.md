@@ -23,6 +23,8 @@ go get github.com/theoremus-urban-solutions/siri-to-gtfsrt
 
 ### As a Library
 
+#### Basic Usage
+
 ```go
 package main
 
@@ -64,6 +66,65 @@ func main() {
     os.WriteFile("gtfsrt.pb", pbfBytes, 0644)
 }
 ```
+
+#### Streaming Base64-Encoded XML
+
+For optimal performance when receiving base64-encoded SIRI XML (e.g., from an API), use the streaming decoder to avoid buffering the full XML in memory:
+
+```go
+package main
+
+import (
+    "bytes"
+    "log"
+    "net/http"
+    
+    "github.com/theoremus-urban-solutions/siri-to-gtfsrt/converter"
+    "github.com/theoremus-urban-solutions/siri-to-gtfsrt/formatter"
+    "github.com/theoremus-urban-solutions/siri-to-gtfsrt/gtfsrt"
+)
+
+func handleSIRIRequest(w http.ResponseWriter, r *http.Request) {
+    // Receive base64-encoded SIRI XML from request body
+    // The streaming decoder pipes base64 → XML parser without intermediate buffering
+    
+    serviceDelivery, err := formatter.DecodeSIRIFromBase64(r.Body)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+    defer r.Body.Close()
+    
+    // Convert to GTFS-RT
+    entities, err := converter.ConvertSIRI(serviceDelivery, converter.DefaultOptions())
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    // Build and serialize feed
+    feedMessage := converter.BuildFeedMessage(entities)
+    pbfBytes, err := gtfsrt.MarshalPBF(feedMessage)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    // Return protobuf binary
+    w.Header().Set("Content-Type", "application/x-protobuf")
+    w.Write(pbfBytes)
+}
+
+func main() {
+    http.HandleFunc("/convert", handleSIRIRequest)
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
+
+**Performance Benefits:**
+- No intermediate XML string allocation
+- Memory usage: O(buffer_size) instead of O(full_xml_size)
+- Eliminates one full-data copy operation
 
 ### As a CLI Tool
 
